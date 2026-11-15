@@ -232,10 +232,16 @@ void RenderFinishEye()
         return;
 
     CTexture* tex = RImplementation.Target->rt_base[0]->pTexture._get();
-    if (!tex || !tex->pSurface)
+    if (!tex)
         return;
 
-    ID3D11Texture2D* dxTex = static_cast<ID3D11Texture2D*>(tex->pSurface);
+    // pSurface - приватное поле CTexture, снаружи недоступно.
+    // Публичный аксессор: surface_get() (SH_Texture.h).
+    ID3DBaseTexture* surf = tex->surface_get();
+    if (!surf)
+        return;
+
+    ID3D11Texture2D* dxTex = static_cast<ID3D11Texture2D*>(surf);
     OpenVR_Submit(g_st.currentEye, dxTex, g_st.eyeBounds[g_st.currentEye]);
 }
 
@@ -349,10 +355,14 @@ void RenderUpdateScreen()
         return;
 
     CTexture* base = RImplementation.Target->rt_base[0]->pTexture._get();
-    if (!base || !base->pSurface)
+    if (!base)
         return;
 
-    HW.get_context(CHW::IMM_CTX_ID)->CopyResource(g_screenTexture, base->pSurface);
+    ID3DBaseTexture* surf = base->surface_get();
+    if (!surf)
+        return;
+
+    HW.get_context(CHW::IMM_CTX_ID)->CopyResource(g_screenTexture, surf);
 
     if (OpenVR_SetScreenTexture(g_screenTexture))
         OpenVR_ShowScreen(true, GetConfig().hudSize * 2.f);

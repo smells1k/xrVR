@@ -12,8 +12,14 @@
 
 #include "xrVR_math.h"
 
-struct Fvector;
-struct Fmatrix;
+// Fvector - это typedef в xrCore (typedef _vector3<float> Fvector;),
+// предобъявлять его через "struct" нельзя: MSVC выдаст
+// "using typedef-name 'Fvector' after 'struct'".
+// _vector3d.h защищён #pragma once, повторное включение безопасно.
+// Путь "../xrCore/_vector3d.h" работает, т.к. модуль всегда лежит в
+// ogsr_engine/xrVR/ (см. integrate_vcxproj.py).
+#include "../xrCore/_vector3d.h"
+
 class IConsole_Command;
 
 namespace vr

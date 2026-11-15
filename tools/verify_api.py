@@ -129,6 +129,22 @@ for s in SOURCES:
     elif s in ("xrVR_api.cpp", "xrVR_console.cpp", "xrVR_render.cpp") or is_null:
         check(not has_openvr, f"{s}: НЕ должен включать openvr.h (он есть только в R4)")
 
+print("[7] Нет обращений к приватным полям движка")
+# CTexture::pSurface - private (SH_Texture.h:120). Публичный аксессор - surface_get().
+render_cpp = (SRC / "xrVR_render.cpp")
+if render_cpp.exists():
+    txt = render_cpp.read_text(encoding="utf-8")
+    check("->pSurface" not in txt and ".pSurface" not in txt,
+          "xrVR_render.cpp обращается к приватному CTexture::pSurface (нужен surface_get())")
+    if "surface_get()" in txt:
+        check(True, "")
+print("[8] Нет предобъявлений typedef через struct")
+h_txt = (SRC / "xrVR.h")
+if h_txt.exists():
+    t = h_txt.read_text(encoding="utf-8")
+    check("struct Fvector;" not in t, "xrVR.h: 'struct Fvector;' - Fvector это typedef (MSVC: using typedef-name after struct)")
+    check("struct Fmatrix;" not in t, "xrVR.h: 'struct Fmatrix;' - Fmatrix это typedef")
+
 print()
 print(f"ИТОГО: {ok} проверок пройдено, {bad} провалено")
 sys.exit(1 if bad else 0)
