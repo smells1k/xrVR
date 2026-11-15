@@ -42,10 +42,7 @@ def patch_device_cpp(root: Path):
     if "../xrVR/xrVR.h" not in s:
         s, _ = ensure_include(s, '#include "../xrVR/xrVR.h"', '#include "xr_input.h"')
 
-    # заголовок стерео-рендера: нужен для RenderUpdateScreen()
-    if "../xrVR/xrVR_render.h" not in s:
-        s, _ = ensure_include(s, '#include "../xrVR/xrVR_render.h"',
-                              '#include "../xrVR/xrVR.h"')
+
 
     # --- 1. Начало кадра: в FrameMove()
     if "vr::OnFrameBegin()" not in s:
@@ -69,9 +66,7 @@ def patch_device_cpp(root: Path):
         if anchor in s:
             eol = "\r\n" if "\r\n" in anchor else "\n"
             ins = ("    // --- VR: завершить кадр (present в SteamVR уже сделан Submit'ом) ---" + eol +
-                   "    vr::OnFrameEnd();" + eol +
-                   "    // VR-экран: backbuffer -> overlay (меню/ПДА/загрузка)" + eol +
-                   "    vr::RenderUpdateScreen();" + eol)
+                   "    vr::OnFrameEnd();" + eol)
             s = s.replace(anchor, anchor + ins, 1)
         else:
             print("!! [01] Render->End anchor not found")

@@ -68,6 +68,29 @@ def main():
     )
 
     s = s[:start] + new_fn + s[end + 1:]
+    # --- 3) CRender::End(): VR-экран ДО Present ---
+    # Present() инвалидирует содержимое backbuffer, поэтому копировать
+    # его в overlay можно только ДО него. Ставить в device.cpp::End()
+    # после ::Render->End() нельзя - там уже поздно.
+    f2 = ROOT / "ogsr_engine/Layers/xrRenderPC_R4/r4.cpp"
+    s2 = read(f2)
+
+    if "vr::RenderUpdateScreen()" not in s2:
+        if '#include "../../xrVR/xrVR_render.h"' not in s2:
+            s2 = s2.replace('#include "stdafx.h"',
+                            '#include "stdafx.h"\n#include "../../xrVR/xrVR_render.h"', 1)
+        m = re.search(r"void CRender::End\(\)\s*\r?\n\{\s*\r?\n", s2)
+        if m:
+            eol = "\r\n" if "\r\n" in s2 else "\n"
+            block = (
+                "    // ---- VR: скопировать кадр в overlay ДО Present ----" + eol +
+                "    vr::RenderUpdateScreen();" + eol + eol)
+            s2 = s2[:m.end()] + block + s2[m.end():]
+            write(f2, s2)
+            print(f"[05] patched {f2} (VR-экран до Present)")
+        else:
+            print("!! [05] CRender::End anchor not found")
+
     write(f, s)
     print(f"[05] patched {f}")
 
