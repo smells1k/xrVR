@@ -1,0 +1,26 @@
+# сборка
+build/
+bin/
+*.obj
+*.pdb
+*.ilk
+*.exe
+*.dll
+*.lib
+*.exp
+*.o
+*.out
+a.out
+# IDE
+.vs/
+*.user
+*.suo
+*.sdf
+*.opensdf
+# ОС
+Thumbs.db
+desktop.ini
+.DS_Store
+# python
+__pycache__/
+*.pyc
