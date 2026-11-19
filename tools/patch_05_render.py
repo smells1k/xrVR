@@ -32,6 +32,8 @@ def write(p, s): p.write_text(p, s) if False else p.write_text(s, encoding="utf-
 def main():
     f = ROOT / "ogsr_engine/Layers/xrRenderPC_R4/r4_R_render.cpp"
     s = read(f)
+    remove_dead_wrapper(f)
+    s = read(f)
 
     if "vr::RenderFinishEye" in s:
         print(f"[05] already patched {f}")
@@ -70,11 +72,11 @@ def main():
     #  т.к. submit делается только когда сцена реально отрисована)
     new_body = body[:-1] + "\n\n    // ---- VR: отправить отрендеренный глаз в SteamVR ----\n    vr::RenderFinishEye();\n}"
 
-    new_fn = (
-        "// ---- VR: переключить камеру на глаз (вызывается из xrGame) ----\n"
-        "void CRender::xrVR_ApplyEye(int eye) { vr::RenderApplyEye(eye); }\n\n"
-        "void CRender::Render()\n" + new_body
-    )
+    # Раньше здесь вставлялась обёртка CRender::xrVR_ApplyEye, но она
+    # объявлена только в r4.h -> MSVC C2039 'is not a member of CRender'.
+    # Никто её не вызывает (xrGame зовёт vr::RenderApplyEye напрямую),
+    # поэтому обёртку не генерируем вообще.
+    new_fn = "void CRender::Render()\n" + new_body
 
     s = s[:start] + new_fn + s[end + 1:]
     # --- 3) CRender::End(): VR-экран ДО Present ---
@@ -102,6 +104,16 @@ def main():
 
     write(f, s)
     print(f"[05] patched {f}")
+
+def remove_dead_wrapper(f):
+    """Убирает мёртвую обёртку CRender::xrVR_ApplyEye (не объявлена в r4.h)."""
+    s = read(f)
+    dead = ("// ---- VR: переключить камеру на глаз (вызывается из xrGame) ----\n"
+            "void CRender::xrVR_ApplyEye(int eye) { vr::RenderApplyEye(eye); }\n\n")
+    if dead in s:
+        write(f, s.replace(dead, ""))
+        print("[05] убрана мёртвая обёртка CRender::xrVR_ApplyEye")
+
 
 if __name__ == "__main__":
     main()

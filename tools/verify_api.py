@@ -112,16 +112,23 @@ check(not (SRC / "xrVR_openvr.cpp").exists(),
       "xrVR_openvr.cpp всё ещё существует - удалите (дубль xrVR_openvr_r4.cpp)")
 
 print("[5] Заголовочные пути PCH корректны")
+# MSVC с /Yu"stdafx.h" находит PCH ТОЛЬКО если в файле есть ровно
+# #include "stdafx.h" (голое имя). Любой путь-префикс -> C1010
+# "unexpected end of file while looking for precompiled header".
 for s, expect in [("xrVR_api.cpp", "../xr_3da/stdafx.h"),
                   ("xrVR_console.cpp", "../xr_3da/stdafx.h"),
                   ("xrVR_openvr_null.cpp", "../xr_3da/stdafx.h"),
-                  ("xrVR_render.cpp", "xrRenderPC_R4/stdafx.h"),
-                  ("xrVR_openvr_r4.cpp", "xrRenderPC_R4/stdafx.h")]:
+                  ("xrVR_render.cpp", "stdafx.h"),
+                  ("xrVR_openvr_r4.cpp", "stdafx.h")]:
     p = SRC / s
     if not p.exists():
         continue
     first = "\n".join(p.read_text(encoding="utf-8").splitlines()[:40])
-    check(expect in first, f"{s}: ожидается #include с {expect}")
+    if expect == "stdafx.h":
+        check('#include "stdafx.h"' in first,
+              f"{s}: нужен ровно #include \"stdafx.h\" (иначе MSVC C1010 при /Yu)")
+    else:
+        check(expect in first, f"{s}: ожидается #include с {expect}")
 
 print("[6] openvr.h подключён только в реализациях")
 for s in SOURCES:

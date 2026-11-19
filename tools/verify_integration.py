@@ -63,6 +63,10 @@ for cpp in sorted(XRVR.glob("*.cpp")):
         target = (cpp.parent / inc).resolve()
         n_inc += 1
         # openvr.h лежит в xrVR/openvr/ (include-путь из vcxproj)
+        # stdafx.h приходит из проекта-хозяина (xrRenderPC_R4 / xr_3da):
+        # MSVC находит его через /I. проекта, поэтому локально файла нет.
+        if inc == "stdafx.h":
+            continue
         alt = (XRVR / "openvr" / inc).resolve()
         check(target.exists() or alt.exists(),
               f"{cpp.name}:{line_no} не найден #include \"{inc}\" (ни {target}, ни {alt})")

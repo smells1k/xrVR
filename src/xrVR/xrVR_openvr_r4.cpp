@@ -11,7 +11,7 @@
 //-----------------------------------------------------------------------------
 #if defined(_WIN32)
 
-#include "../Layers/xrRenderPC_R4/stdafx.h"   // PCH xrRender_R4
+#include "stdafx.h"   // PCH xrRender_R4 (имя ДОЛЖНО совпадать с /Yu)
 
 #include "xrVR.h"
 #include "xrVR_openvr.h"

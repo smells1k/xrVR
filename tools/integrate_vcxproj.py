@@ -62,7 +62,8 @@ def copy_sources():
     print(f"[vcx] скопировано в {DEST}: {', '.join(sorted(copied))}")
 
 
-def patch_vcxproj(path: Path, new_clcompile, new_clinclude, include_dirs):
+def patch_vcxproj(path: Path, new_clcompile, new_clinclude, include_dirs,
+                  extra_libs=None, project_ref=None):
     if not path.exists():
         print(f"!! [vcx] нет файла {path}")
         return
@@ -98,6 +99,42 @@ def patch_vcxproj(path: Path, new_clcompile, new_clinclude, include_dirs):
         s = re.sub(r"<AdditionalIncludeDirectories>.*?</AdditionalIncludeDirectories>",
                    add_inc, s, flags=re.S)
 
+    # --- AdditionalDependencies (дополнительные .lib) ---
+    for lib in (extra_libs or []):
+        if lib in s:
+            continue
+
+        def add_lib(match):
+            body = match.group(0)
+            if lib in body:
+                return body
+            return body.replace("<AdditionalDependencies>",
+                                f"<AdditionalDependencies>{lib};")
+
+        s = re.sub(r"<AdditionalDependencies>[^<]*</AdditionalDependencies>",
+                   add_lib, s, flags=re.S)
+
+    # --- ProjectReference (чтобы MSBuild знал порядок сборки) ---
+    for ref in (project_ref or []):
+        if ref in s:
+            continue
+        guid = ""
+        sln = ENGINE.parent / "Engine.sln"
+        if sln.exists():
+            m = re.search(
+                r'Project\("\{[0-9A-Fa-f-]+\}"\)\s*=\s*"[^"]*",\s*"' +
+                re.escape(ref.replace("\\", "\\")) + r'",\s*"\{([0-9A-Fa-f-]+)\"',
+                sln.read_text(encoding="utf-8", errors="replace"))
+            if m:
+                guid = m.group(1)
+        if guid:
+            entry = (f'  <ItemGroup>\n'
+                     f'    <ProjectReference Include="{ref}">\n'
+                     f'      <Project>{{{guid}}}</Project>\n'
+                     f'    </ProjectReference>\n'
+                     f'  </ItemGroup>\n')
+            s = s.replace("</Project>", entry + "</Project>", 1)
+
     path.write_text(s, encoding="utf-8")
     print(f"[vcx] патчен {path}")
 
@@ -125,12 +162,17 @@ def main():
         include_dirs=["$(SolutionDir)ogsr_engine\\xrVR", "$(SolutionDir)ogsr_engine\\xrVR\\openvr"],
     )
 
-    # xrGame: только заголовки (API линкуется из XR_3DA через xrEngine.lib)
+    # xrGame: заголовки + ССЫЛКА на xrRender_R4.
+    # CLevel::OnRender зовёт vr::RenderBeginStereo/RenderApplyEye/RenderEndStereo,
+    # а они определены в xrVR_render.cpp внутри xrRender_R4 (LTCG /GL -> lib).
+    # Раньше ссылки не было -> LNK2019 на этих трёх символах.
     patch_vcxproj(
         ENGINE / "xrGame" / "xrGame.vcxproj",
         new_clcompile=[],
         new_clinclude=["..\\xrVR\\xrVR.h", "..\\xrVR\\xrVR_math.h"],
         include_dirs=["$(SolutionDir)ogsr_engine\\xrVR"],
+        extra_libs=["xrRender_R4.lib"],
+        project_ref=[r"..\Layers\xrRenderPC_R4\xrRender_R4.vcxproj"],
     )
 
     print("\n[vcx] Готово. Соберите Engine.sln (Release|x64).")

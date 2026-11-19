@@ -120,4 +120,10 @@ const char* GetStatusString();
 void LogLine(const char* fmt, ...);
 extern bool g_consoleRegistered;
 
+
+// ---- стерео-проход (реализация в xrRender_R4, вызывается из CLevel) ----
+int  RenderBeginStereo();
+bool RenderApplyEye(int eye_index);
+void RenderEndStereo();
+bool RenderInStereo();
 } // namespace vr

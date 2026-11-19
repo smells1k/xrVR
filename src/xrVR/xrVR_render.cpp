@@ -17,7 +17,7 @@
 //  Более качественный вариант (отдельный RT на глаз + copy) включён через
 //  VR_QUALITY_STEREO_RT: использует второй render target и CopyResource.
 //-----------------------------------------------------------------------------
-#include "../Layers/xrRenderPC_R4/stdafx.h"   // PCH xrRender_R4
+#include "stdafx.h"   // PCH xrRender_R4 (имя ДОЛЖНО совпадать с /Yu)
 
 #include "xrVR.h"
 #include "xrVR_openvr.h"
