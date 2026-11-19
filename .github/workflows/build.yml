@@ -8,43 +8,58 @@ on:
 jobs:
   engine:
     runs-on: windows-2022
-    timeout-minutes: 120
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@v4
 
-      - name: Движок OGSR (клон)
-        shell: bash
+      - name: Clone OGSR engine
+        shell: cmd
         run: |
-          git clone --depth 1 https://github.com/OGSR/OGSR-Engine.git C:/e
-          echo "клон готов"
-          ls C:/e
+          git clone --depth 1 https://github.com/OGSR/OGSR-Engine.git C:\e
+          if errorlevel 1 exit /b 1
 
-      - name: Python
-        uses: actions/setup-python@v5
+      - name: Update third-party components
+        shell: cmd
+        working-directory: C:\e
+        run: |
+          call Update_Components.cmd < nul
+          echo components done
+
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
-      - name: Патчи VR
-        shell: bash
+      - name: Apply VR patches
+        shell: cmd
         run: |
-          python tools/apply_patches.py C:/e
+          python tools\apply_patches.py C:\e
+          if errorlevel 1 exit /b 1
 
-      - name: MSBuild
+      - name: MSBuild Release x64
         shell: cmd
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
-          msbuild C:\e\Engine.sln /m /p:Configuration=Release /p:Platform=x64 /v:minimal /nologo
+          msbuild C:\e\Engine.sln /m /p:Configuration=Release /p:Platform=x64 /v:minimal /nologo /flp:logfile=C:\e\build.log;verbosity=normal
+          if errorlevel 1 (type C:\e\build.log | findstr /i "error" & exit /b 1)
 
-      - name: Найти xrEngine.exe
-        shell: bash
+      - name: Collect output
+        shell: cmd
         run: |
-          find C:/e -name "xrEngine.exe" -o -name "*.dll" | head -50
+          dir /s /b C:\e\bin
+          dir /s /b C:\e\xrEngine.exe 2>nul
 
-      - name: Выложить
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
+        if: always()
         with:
-          name: xrEngine-build
+          name: build-log
           path: |
-            C:/e/bin/**
-            C:/e/ogsr_engine/_build/**
+            C:\e\build.log
+          if-no-files-found: warn
+
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: xrEngine-exe
+          path: |
+            C:\e\bin\**
           if-no-files-found: warn

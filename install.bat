@@ -77,7 +77,7 @@ for /f "tokens=*" %%v in ('%PY% --version 2^>^&1') do echo     OK: %%v
 echo.
 
 REM ---------------------------------------------------------------- ENGINE
-echo [3/6] OGSR Engine...
+echo [3/7] OGSR Engine...
 
 if exist "!ENGINE!\Engine.sln" (
     echo     Already present: !ENGINE!
@@ -101,7 +101,33 @@ if exist "!ENGINE!\Engine.sln" (
 echo.
 
 REM ---------------------------------------------------------------- PATCHES
-echo [4/6] Applying VR patches...
+echo [4/7] Updating third-party components...
+echo     OGSR needs 12 extra git repos. This takes a few minutes.
+pushd "!ENGINE!"
+
+if exist "!ENGINE!\Update_Components.cmd" (
+    echo     Running Update_Components.cmd from the engine repo...
+    call "!ENGINE!\Update_Components.cmd" < nul
+) else (
+    echo     Update_Components.cmd not found, cloning manually...
+    call :clone microsoft/DirectXTex.git mar2025 3rd_party\Src\DirectXTex\DirectXTex
+    call :clone OGSR/DirectXMesh.git main 3rd_party\Src\DirectXMesh\DirectXMesh
+    call :clone microsoft/DirectXMath.git main 3rd_party\Src\DirectXMath\DirectXMath
+    call :clone cameron314/concurrentqueue.git master 3rd_party\Src\concurrentqueue\concurrentqueue
+    call :clone AgentD/squashfs-tools-ng.git master 3rd_party\Src\libsquashfs\squashfs-tools-ng
+    call :clone lz4/lz4.git dev 3rd_party\Src\lz4\lz4
+    call :clone facebook/zstd.git dev 3rd_party\Src\zstd\zstd
+    call :clone microsoft/mimalloc.git v3.5.1 3rd_party\Src\mimalloc\mimalloc
+    call :clone NVIDIA/DLSS.git v310.7.0 3rd_party\Src\NVIDIA_DLSS\DLSS
+    call :clone tzcnt/cpputils.git main 3rd_party\Src\cpputils\cpputils
+    call :clone OGSR/discord-rpc.git master 3rd_party\Src\DiscordRPC\DiscordRPC
+    call :clone Tencent/rapidjson.git v1.1.0 3rd_party\Src\DiscordRPC\DiscordRPC\thirdparty\rapidjson-1.1.0
+    call :clone OGSR/FidelityFX-SDK.git release-FSR3-3.1.2-DX11-Native-API 3rd_party\Src\FidelityFX-SDK\FidelityFX-SDK
+)
+popd
+echo     Components done.
+
+echo [5/7] Applying VR patches...
 
 %PY% tools\apply_patches.py "!ENGINE!"
 if errorlevel 1 (
@@ -114,7 +140,7 @@ if errorlevel 1 (
 echo.
 
 REM ---------------------------------------------------------------- BUILD
-echo [5/6] Building Release x64...
+echo [6/7] Building Release x64...
 echo     First build takes 15-40 minutes. Do not close this window.
 echo.
 
@@ -130,7 +156,7 @@ if errorlevel 1 (
 echo.
 
 REM ---------------------------------------------------------------- RESULT
-echo [6/6] Done.
+echo [7/7] Done.
 echo.
 
 set "BINDIR=!ENGINE!\bin"
@@ -170,3 +196,19 @@ echo ============================================================
 echo.
 
 pause
+
+goto :eof
+
+:clone
+rem %1=repo %2=branch %3=target dir
+if exist "%~3\.git" (
+    echo     skip %~3
+) else (
+    git clone --branch %~2 --depth 1 https://github.com/%~1 "%~3" >nul 2>&1
+    if errorlevel 1 (
+        echo     WARN: failed to clone %~1
+    ) else (
+        echo     ok %~1
+    )
+)
+goto :eof
