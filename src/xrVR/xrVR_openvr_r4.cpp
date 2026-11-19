@@ -9,7 +9,7 @@
 // Так XR_3DA и xrGame не линкуют openvr_api.dll вообще, а вся работа
 // с OpenVR идёт из одного места - рендера.
 //-----------------------------------------------------------------------------
-#if defined(_WIN32)
+
 
 #include "stdafx.h"   // PCH xrRender_R4 (имя ДОЛЖНО совпадать с /Yu)
 
@@ -378,4 +378,3 @@ const OpenVRImpl* OvrGetImpl()
 
 } // namespace vr
 
-#endif // _WIN32

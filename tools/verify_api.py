@@ -195,14 +195,37 @@ for _f in sorted(SRC.glob("*")):
             _bad.append(f"{_f.name}:{_i}")
 check(not _bad, "кириллица в коде: " + ", ".join(_bad[:5]))
 
-print("[12] Баланс препроцессора (#if / #endif)")
+print("[12] Препроцессор сбалансирован ПО ПОРЯДКУ (#if/#endif)")
 for _f in sorted(SRC.glob("*.cpp")):
-    _t = _f.read_text(encoding="utf-8")
-    _o = len(_re.findall(r"^\s*#\s*if(n?def)?\b", _t, _re.M))
-    _c = len(_re.findall(r"^\s*#\s*endif\b", _t, _re.M))
-    check(_o == _c, f"{_f.name}: #if={_o} #endif={_c} (MSVC C1020)")
+    _stack, _err = [], None
+    for _i, _l in enumerate(_f.read_text(encoding="utf-8").splitlines(), 1):
+        _m = _re.match(r"\s*#\s*(if|ifdef|ifndef|else|elif|endif)\b", _l)
+        if not _m:
+            continue
+        _k = _m.group(1)
+        if _k in ("if", "ifdef", "ifndef"):
+            _stack.append(_i)
+        elif _k == "endif":
+            if not _stack:
+                _err = f"лишний #endif на строке {_i} (MSVC C1020)"; break
+            _stack.pop()
+        elif not _stack:
+            _err = f"#{_k} на строке {_i} без #if"; break
+    if not _err and _stack:
+        _err = f"незакрытые #if на строках {_stack} (MSVC C1014)"
+    check(_err is None, f"{_f.name}: {_err}")
 
-print("[13] Нет предобъявлений typedef через struct")
+print("[13] PCH идёт ПЕРВЫМ оператором (до любого #if)")
+for _f in sorted(SRC.glob("*.cpp")):
+    _sig = [l for l in _f.read_text(encoding="utf-8").splitlines()
+            if l.strip() and not l.strip().startswith("//")]
+    if not _sig or '#include "stdafx.h"' not in _f.read_text(encoding="utf-8"):
+        continue
+    check(_sig[0].strip().startswith('#include "stdafx.h"'),
+          f"{_f.name}: первый оператор '{_sig[0].strip()[:30]}', а не #include \"stdafx.h\""
+          " (при /Yu MSVC требует PCH раньше любого #if)")
+
+print("[14] Нет предобъявлений typedef через struct")
 h_txt = (SRC / "xrVR.h")
 if h_txt.exists():
     t = h_txt.read_text(encoding="utf-8")
