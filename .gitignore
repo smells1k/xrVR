@@ -6,7 +6,11 @@ bin/
 *.ilk
 *.exe
 *.dll
+# исключение: openvr_api.dll кладётся рядом с exe
+!third_party/openvr/lib/win64/openvr_api.dll
 *.lib
+# исключение: импорт-библиотека OpenVR нужна для линковки
+!third_party/openvr/lib/win64/openvr_api.lib
 *.exp
 *.o
 *.out

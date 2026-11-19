@@ -45,8 +45,9 @@ jobs:
       - name: Collect output
         shell: cmd
         run: |
-          dir /s /b C:\e\bin
-          dir /s /b C:\e\xrEngine.exe 2>nul
+          dir /s /b C:\e\bin_x64
+          copy /y C:\e\ogsr_engine\xrVR\openvr\lib\openvr_api.dll C:\e\bin_x64\openvr_api.dll
+          dir /s /b C:\e\bin_x64\xrEngine.exe
 
       - uses: actions/upload-artifact@v4
         if: always()
@@ -61,5 +62,5 @@ jobs:
         with:
           name: xrEngine-exe
           path: |
-            C:\e\bin\**
+            C:\e\bin_x64\**
           if-no-files-found: warn

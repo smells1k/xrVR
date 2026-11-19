@@ -156,6 +156,16 @@ if errorlevel 1 (
 echo.
 
 REM ---------------------------------------------------------------- RESULT
+echo [7/7] Copying openvr_api.dll next to the engine...
+set "OVRDLL=!ENGINE!\ogsr_engine\xrVR\openvr\lib\openvr_api.dll"
+if exist "!OVRDLL!" (
+    if exist "!ENGINE!\bin_x64" copy /y "!OVRDLL!" "!ENGINE!\bin_x64\openvr_api.dll" >nul 2>&1
+    if exist "!ENGINE!\bin" copy /y "!OVRDLL!" "!ENGINE!\bin\openvr_api.dll" >nul 2>&1
+    echo     copied openvr_api.dll
+) else (
+    echo     WARN: openvr_api.dll not found, copy it near xrEngine.exe manually
+)
+
 echo [7/7] Done.
 echo.
 
