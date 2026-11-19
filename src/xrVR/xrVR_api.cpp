@@ -7,7 +7,8 @@
 // реализуется как null-stub.
 // Created for S.T.A.L.K.E.R. Shadow of Chernobyl (OGSR Engine).
 //-----------------------------------------------------------------------------
-#include "../xr_3da/stdafx.h"   // PCH XR_3DA (xrGame подключает его из своего stdafx.h)
+
+#include "stdafx.h"   // PCH проекта-хозяина (имя ДОЛЖНО совпадать с /Yu)
 
 #include "xrVR.h"
 #include "xrVR_openvr.h"

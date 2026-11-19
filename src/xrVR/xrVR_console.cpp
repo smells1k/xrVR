@@ -10,7 +10,8 @@
 //   vr_hud_dist <x>  - дистанция VR-экрана HUD
 //   vr_fov <deg>     - вертикальный FOV
 //-----------------------------------------------------------------------------
-#include "../xr_3da/stdafx.h"   // PCH проекта XR_3DA
+
+#include "stdafx.h"   // PCH проекта-хозяина (имя ДОЛЖНО совпадать с /Yu)
 
 #include "xrVR.h"
 #include "xrVR_console.h"

@@ -111,24 +111,15 @@ check(dupes <= 1, f"найдено {dupes} реализаций OpenVR (ожид
 check(not (SRC / "xrVR_openvr.cpp").exists(),
       "xrVR_openvr.cpp всё ещё существует - удалите (дубль xrVR_openvr_r4.cpp)")
 
-print("[5] Заголовочные пути PCH корректны")
-# MSVC с /Yu"stdafx.h" находит PCH ТОЛЬКО если в файле есть ровно
-# #include "stdafx.h" (голое имя). Любой путь-префикс -> C1010
-# "unexpected end of file while looking for precompiled header".
-for s, expect in [("xrVR_api.cpp", "../xr_3da/stdafx.h"),
-                  ("xrVR_console.cpp", "../xr_3da/stdafx.h"),
-                  ("xrVR_openvr_null.cpp", "../xr_3da/stdafx.h"),
-                  ("xrVR_render.cpp", "stdafx.h"),
-                  ("xrVR_openvr_r4.cpp", "stdafx.h")]:
-    p = SRC / s
-    if not p.exists():
-        continue
-    first = "\n".join(p.read_text(encoding="utf-8").splitlines()[:40])
-    if expect == "stdafx.h":
-        check('#include "stdafx.h"' in first,
-              f"{s}: нужен ровно #include \"stdafx.h\" (иначе MSVC C1010 при /Yu)")
-    else:
-        check(expect in first, f"{s}: ожидается #include с {expect}")
+print("[5] PCH подключается голым stdafx.h (требование MSVC /Yu)")
+# MSVC ищет PCH ТОЛЬКО по точному имени из /Yu. 'stdafx.h' -> ок,
+# '../xr_3da/stdafx.h' -> C1010 'unexpected end of file'.
+for _f in sorted(SRC.glob("*.cpp")):
+    _t = _f.read_text(encoding="utf-8")
+    _sig = [l for l in _t.splitlines() if l.strip() and not l.strip().startswith("//")]
+    check(_sig and _sig[0].strip().startswith('#include "stdafx.h"'),
+          f"{_f.name}: первым оператором должен быть #include \"stdafx.h\" "
+          f"(сейчас: {_sig[0].strip()[:40] if _sig else 'пусто'}) -> MSVC C1010")
 
 print("[6] openvr.h подключён только в реализациях")
 for s in SOURCES:
