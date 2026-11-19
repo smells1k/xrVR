@@ -105,3 +105,29 @@ python tools/verify_api.py
 - `third_party/openvr/openvr.h` — © Valve Corporation, BSD-3-Clause.
 - OGSR Engine — отдельный проект, см. его лицензию.
 - S.T.A.L.K.E.R. — © GSC Game World. Нужна легальная копия игры.
+
+## Готовый движок (без Visual Studio)
+
+Сборка делается автоматически на GitHub Actions (windows-2022, MSVC,
+Release x64). Последняя успешная: `XR_3DA.vcxproj -> bin_x64\xrEngine.exe`.
+
+Если не хочешь ставить Visual Studio и ждать 20 минут компиляции:
+
+1. Скачай `xrVR-bin-v0.1.4.zip` со страницы релизов
+2. Скопируй `xrEngine.exe` и `openvr_api.dll` в `bin_x64\` твоей OGSR
+3. Скопируй `gamedata\` из `xrVR-kit-v0.1.4.zip` в корень игры
+4. Запускай
+
+Если хочешь собрать сам — `install.bat` делает всё то же самое,
+включая `Update_Components.cmd` (12 сторонних репозиториев).
+
+## Статус проверки
+
+| Что | Как проверено |
+|---|---|
+| Компиляция MSVC | GitHub Actions, windows-2022, успешно |
+| `xrEngine.exe` | собран, 31 МБ, внутри `vr_status`/`vr_recenter`/`xrVR` |
+| `install.bat` | запущен в настоящем `cmd.exe` (wine), все 7 шагов |
+| Патчи движка | применены к чистому клону, 142 + 91 проверка |
+| Запуск на шлеме | **НЕ проверено** — Pico Neo 3 в песочнице нет |
+| Игра целиком | **НЕ проверено** — нужен установленный S.T.A.L.K.E.R. |
