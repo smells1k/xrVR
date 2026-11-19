@@ -1,0 +1,50 @@
+name: build
+
+on:
+  push:
+    branches: [ master ]
+  workflow_dispatch:
+
+jobs:
+  engine:
+    runs-on: windows-2022
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Движок OGSR (клон)
+        shell: bash
+        run: |
+          git clone --depth 1 https://github.com/OGSR/OGSR-Engine.git C:/e
+          echo "клон готов"
+          ls C:/e
+
+      - name: Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Патчи VR
+        shell: bash
+        run: |
+          python tools/apply_patches.py C:/e
+
+      - name: MSBuild
+        shell: cmd
+        run: |
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+          msbuild C:\e\Engine.sln /m /p:Configuration=Release /p:Platform=x64 /v:minimal /nologo
+
+      - name: Найти xrEngine.exe
+        shell: bash
+        run: |
+          find C:/e -name "xrEngine.exe" -o -name "*.dll" | head -50
+
+      - name: Выложить
+        uses: actions/upload-artifact@v4
+        with:
+          name: xrEngine-build
+          path: |
+            C:/e/bin/**
+            C:/e/ogsr_engine/_build/**
+          if-no-files-found: warn
