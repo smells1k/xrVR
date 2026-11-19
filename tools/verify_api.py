@@ -129,7 +129,20 @@ for s in SOURCES:
     elif s in ("xrVR_api.cpp", "xrVR_console.cpp", "xrVR_render.cpp") or is_null:
         check(not has_openvr, f"{s}: НЕ должен включать openvr.h (он есть только в R4)")
 
-print("[7] Нет обращений к приватным полям движка")
+print("[7] Конфиг читается из gamedata/configs/vr/vr_config.ltx")
+api_cpp = (SRC / "xrVR_api.cpp")
+if api_cpp.exists():
+    t = api_cpp.read_text(encoding="utf-8")
+    # pSettings - это только configs/system.ltx (x_ray.cpp:44)
+    check('FS.update_path' in t and "vr_config.ltx" in t,
+          "LoadConfig не читает vr_config.ltx через FS.update_path")
+    check('section_exist("vr")' in t and "vrIni" in t,
+          "LoadConfig не использует собственный CInifile для [vr]")
+    # bLoad должен быть TRUE, иначе файл не парсится
+    check("TRUE, TRUE, FALSE" in t,
+          "CInifile создаётся с bLoad=FALSE - файл не будет прочитан")
+
+print("[8] Нет обращений к приватным полям движка")
 # CTexture::pSurface - private (SH_Texture.h:120). Публичный аксессор - surface_get().
 render_cpp = (SRC / "xrVR_render.cpp")
 if render_cpp.exists():
@@ -138,7 +151,7 @@ if render_cpp.exists():
           "xrVR_render.cpp обращается к приватному CTexture::pSurface (нужен surface_get())")
     if "surface_get()" in txt:
         check(True, "")
-print("[8] Нет предобъявлений typedef через struct")
+print("[9] Нет предобъявлений typedef через struct")
 h_txt = (SRC / "xrVR.h")
 if h_txt.exists():
     t = h_txt.read_text(encoding="utf-8")

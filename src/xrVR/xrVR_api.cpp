@@ -24,6 +24,9 @@ namespace vr
 {
 bool g_consoleRegistered = false;
 
+// Путь к прочитанному конфигу (для лога и диагностики)
+static string_path g_cfgPath{};
+
 namespace
 {
 State g_state;
@@ -121,17 +124,35 @@ void Shutdown()
 void LoadConfig()
 {
     Config& c = g_config;
-    if (!pSettings || !pSettings->section_exist("vr"))
+
+    // ВАЖНО: pSettings (x_ray.cpp:44) - это только configs/system.ltx.
+    // Наш vr_config.ltx там не лежит, поэтому читаем файл сами через FS.
+    // Раньше здесь стояла проверка pSettings->section_exist("vr") - она
+    // всегда давала false, и все настройки молча оставались дефолтными.
+    // Аргументы CInifile(name, ReadOnly, bLoad, SaveAtEnd) - как в
+    // Environment.cpp: bLoad=TRUE обязателен, иначе файл не читается.
+    CInifile* vrIni = nullptr;
+    if (FS.exist("$game_config$", "vr\\vr_config.ltx"))
     {
-        LogLine("* [xrVR] секции [vr] нет в configs/vr/vr_config.ltx - настройки по умолчанию.");
+        vrIni = xr_new<CInifile>(
+            FS.update_path(g_cfgPath, "$game_config$", "vr\\vr_config.ltx"),
+            TRUE, TRUE, FALSE);
+    }
+
+    if (!vrIni || !vrIni->section_exist("vr"))
+    {
+        LogLine("* [xrVR] нет gamedata/configs/vr/vr_config.ltx - настройки по умолчанию.");
+        if (vrIni) { vrIni->~CInifile(); vrIni = nullptr; }
         return;
     }
 
-    auto get_bool = [](LPCSTR n, bool def) {
-        return pSettings->line_exist("vr", n) ? (CInifile::IsBOOL(pSettings->r_string("vr", n)) != FALSE) : def;
+    LogLine("* [xrVR] прочитан %s", g_cfgPath);
+
+    auto get_bool = [vrIni](LPCSTR n, bool def) {
+        return vrIni->line_exist("vr", n) ? (CInifile::IsBOOL(vrIni->r_string("vr", n)) != FALSE) : def;
     };
-    auto get_float = [](LPCSTR n, float def) { return pSettings->line_exist("vr", n) ? pSettings->r_float("vr", n) : def; };
-    auto get_int = [](LPCSTR n, int def) { return pSettings->line_exist("vr", n) ? (int)pSettings->r_u32("vr", n) : def; };
+    auto get_float = [vrIni](LPCSTR n, float def) { return vrIni->line_exist("vr", n) ? vrIni->r_float("vr", n) : def; };
+    auto get_int = [vrIni](LPCSTR n, int def) { return vrIni->line_exist("vr", n) ? (int)vrIni->r_u32("vr", n) : def; };
 
     c.enabled = get_bool("vr_enabled", c.enabled);
     c.autoEnableInGame = get_bool("vr_auto_in_game", c.autoEnableInGame);
@@ -164,6 +185,8 @@ void LoadConfig()
 
     LogLine("* [xrVR] config: enabled=%d scale=%.2f eye=%.2f fov=%.0f hudDist=%.2f hudSize=%.2f",
             c.enabled ? 1 : 0, c.worldScale, c.eyeHeight, c.fovDeg, c.hudDistance, c.hudSize);
+
+    xr_delete(vrIni);
 }
 
 void OnDeviceCreate()
