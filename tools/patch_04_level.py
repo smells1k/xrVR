@@ -19,6 +19,14 @@
 import sys
 from pathlib import Path
 
+# --- Windows: консоль по умолчанию cp1251, русский текст падает -----------
+for _s in (sys.stdout, sys.stderr):
+    try:
+        _s.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
+
 ROOT = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(".")
 
 def read(p): return p.read_text(encoding="utf-8")
