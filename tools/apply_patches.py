@@ -46,8 +46,9 @@ failed = False
 for p in PATCHES:
     print(f"\n--- {p.name} ---")
     r = subprocess.run([sys.executable, str(p), str(target)],
-                       capture_output=True, text=True)
-    out = (r.stdout + r.stderr).strip()
+                       capture_output=True, text=True,
+                       encoding="utf-8", errors="replace")
+    out = ((r.stdout or "") + (r.stderr or "")).strip()
     if out:
         print(out)
     if r.returncode != 0:
@@ -56,19 +57,22 @@ for p in PATCHES:
 
 print("\n--- integrate_vcxproj.py ---")
 r = subprocess.run([sys.executable, str(TOOLS / "integrate_vcxproj.py"), str(target)],
-                   capture_output=True, text=True)
-print((r.stdout + r.stderr).strip())
+                   capture_output=True, text=True,
+                       encoding="utf-8", errors="replace")
+print(((r.stdout or "") + (r.stderr or "")).strip())
 if r.returncode != 0:
     failed = True
 
 print("\n--- verify_api.py ---")
 r = subprocess.run([sys.executable, str(TOOLS / "verify_api.py")],
-                   capture_output=True, text=True)
-print((r.stdout + r.stderr).strip()[-1500:])
+                   capture_output=True, text=True,
+                       encoding="utf-8", errors="replace")
+print(((r.stdout or "") + (r.stderr or "")).strip()[-1500:])
 
 print(f"\n--- verify_integration.py {target} ---")
 r = subprocess.run([sys.executable, str(TOOLS / "verify_integration.py"), str(target)],
-                   capture_output=True, text=True)
+                   capture_output=True, text=True,
+                       encoding="utf-8", errors="replace")
 print((r.stdout + r.stderr).strip()[-2000:])
 if r.returncode != 0:
     failed = True
