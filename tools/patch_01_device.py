@@ -87,7 +87,13 @@ def patch_device_cpp(root: Path):
     sc = read(fc)
     if "vr::OnDeviceCreate()" not in sc:
         if '#include "../xrVR/xrVR.h"' not in sc:
-            sc = '#include "../xrVR/xrVR.h"\n' + sc
+            # СТАВИТЬ ПОСЛЕ stdafx.h: XR_3DA собирается с /Yu"stdafx.h",
+            # MSVC ищет PCH первым оператором -> иначе C1010.
+            if '#include "stdafx.h"' in sc:
+                sc = sc.replace('#include "stdafx.h"',
+                                '#include "stdafx.h"\n#include "../xrVR/xrVR.h"', 1)
+            else:
+                sc = '#include "../xrVR/xrVR.h"\n' + sc
         m = re.search(r"(void CRenderDevice::_Create\(\)\s*\r?\n\{\s*\r?\n)", sc)
         if m:
             sc = sc[:m.end()] + "    // --- VR ---\n    vr::OnDeviceCreate();\n\n" + sc[m.end():]
@@ -100,7 +106,11 @@ def patch_device_cpp(root: Path):
     sd = read(fd)
     if "vr::OnDeviceDestroy()" not in sd:
         if '#include "../xrVR/xrVR.h"' not in sd:
-            sd = '#include "../xrVR/xrVR.h"\n' + sd 
+            if '#include "stdafx.h"' in sd:
+                sd = sd.replace('#include "stdafx.h"',
+                                '#include "stdafx.h"\n#include "../xrVR/xrVR.h"', 1)
+            else:
+                sd = '#include "../xrVR/xrVR.h"\n' + sd
         m = re.search(r"(void CRenderDevice::_Destroy\(BOOL bKeepTextures\)\s*\r?\n\{\s*\r?\n)", sd)
         if m:
             sd = sd[:m.end()] + "    // --- VR ---\n    vr::OnDeviceDestroy();\n\n" + sd[m.end():]

@@ -131,6 +131,27 @@ for cpp in sorted(XRVR.glob("*.cpp")):
     hits = [k for k, t in proj_text.items() if cpp.name in t]
     check(len(hits) == 1, f"{cpp.name} найден в {len(hits)} проектах: {hits}")
 
+print("[4b] Все ClCompile из vcxproj существуют на диске")
+import re as _re
+import os as _os
+for _proj, _rel in [("ogsr_engine/xr_3da/XR_3DA.vcxproj", "ogsr_engine/xr_3da"),
+                    ("ogsr_engine/Layers/xrRenderPC_R4/xrRender_R4.vcxproj",
+                     "ogsr_engine/Layers/xrRenderPC_R4"),
+                    ("ogsr_engine/xrGame/xrGame.vcxproj", "ogsr_engine/xrGame")]:
+    _f = ENGINE_ROOT / _proj
+    if not _f.exists():
+        continue
+    _t = _f.read_text(encoding="utf-8", errors="replace")
+    _miss = []
+    for _m in _re.findall(r'<ClCompile Include="([^"]+)"', _t):
+        if _m.startswith("$") or "%28" in _m or "%29" in _m:
+            continue
+        if not (_f.parent / _m.replace("\\", "/")).resolve().exists():
+            _miss.append(_m)
+    # xrRender содержит %28%29-экранированные имена - их проверяем отдельно
+    _miss = [m for m in _miss if "xrVR" in m or "r4" in m.lower()]
+    check(not _miss, f"{_proj}: не существуют {_miss[:3]}")
+
 print("[5] Обязательные файлы в проектах")
 check("xrVR_openvr_r4.cpp" in proj_text.get("xrRender_R4", ""), "R4: нет xrVR_openvr_r4.cpp")
 check("xrVR_render.cpp" in proj_text.get("xrRender_R4", ""), "R4: нет xrVR_render.cpp")

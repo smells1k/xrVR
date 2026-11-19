@@ -70,6 +70,13 @@ def patch_vcxproj(path: Path, new_clcompile, new_clinclude, include_dirs,
 
     s = path.read_text(encoding="utf-8")
 
+    # --- убрать устаревшие записи тех же файлов (другой относительный путь) ---
+    import os
+    for item in new_clcompile:
+        base = os.path.basename(item.replace("\\", "/"))
+        pattern = r'\s*<ClCompile Include="[^"]*' + re.escape(base) + r'"\s*/>'
+        s = re.sub(pattern, "", s)
+
     # --- ClCompile ---
     for item in new_clcompile:
         if f'<ClCompile Include="{item}"' in s:
@@ -149,8 +156,8 @@ def main():
     # XR_3DA: движок (Device/камера/консоль) + нулевая реализация OpenVR
     patch_vcxproj(
         ENGINE / "xr_3da" / "XR_3DA.vcxproj",
-        new_clcompile=["xrVR\\xrVR_api.cpp", "xrVR\\xrVR_console.cpp", "xrVR\\xrVR_openvr_null.cpp"],
-        new_clinclude=["xrVR\\xrVR.h", "xrVR\\xrVR_math.h", "xrVR\\xrVR_openvr.h", "xrVR\\xrVR_console.h"],
+        new_clcompile=["..\\xrVR\\xrVR_api.cpp", "..\\xrVR\\xrVR_console.cpp", "..\\xrVR\\xrVR_openvr_null.cpp"],
+        new_clinclude=["..\\xrVR\\xrVR.h", "..\\xrVR\\xrVR_math.h", "..\\xrVR\\xrVR_openvr.h", "..\\xrVR\\xrVR_console.h"],
         include_dirs=["$(SolutionDir)ogsr_engine\\xrVR"],
     )
 
