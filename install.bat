@@ -1,44 +1,27 @@
 @echo off
-chcp 65001 >nul
+chcp 65001 >nul 2>&1
 setlocal EnableDelayedExpansion
-title xrVR - установка и сборка
-
-REM ===========================================================================
-REM  xrVR - установка мода и сборка движка одной кнопкой.
-REM
-REM  Что делает скрипт:
-REM    1. Находит Visual Studio (vswhere, потом перебор путей)
-REM    2. Проверяет Python
-REM    3. Клонирует OGSR-Engine, если папки ещё нет
-REM    4. Применяет патчи VR-мода
-REM    5. Собирает Release|x64 через MSBuild
-REM    6. Собирает папку bin\ и говорит, что положить рядом с exe
-REM
-REM  Положить этот файл в корень репозитория xrVR (рядом с tools\).
-REM ===========================================================================
+title xrVR installer
 
 set "ROOT=%~dp0"
 cd /d "%ROOT%"
 
 echo.
 echo ============================================================
-echo   xrVR. VR-мод для S.T.A.L.K.E.R. ТЧ на OGSR Engine
+echo   xrVR - VR mod for S.T.A.L.K.E.R. Shadow of Chernobyl
 echo ============================================================
 echo.
 
-REM --- путь к движку ---------------------------------------------------------
 if "%~1"=="" (
     set "ENGINE=%ROOT%OGSR-Engine"
 ) else (
     set "ENGINE=%~1"
 )
-echo Движок будет здесь: !ENGINE!
+echo Engine target: !ENGINE!
 echo.
 
-REM ===========================================================================
-REM 1. VISUAL STUDIO
-REM ===========================================================================
-echo [1/6] Ищу Visual Studio...
+REM ---------------------------------------------------------------- VS
+echo [1/6] Searching Visual Studio...
 
 set "VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
 set "MSBUILD="
@@ -50,7 +33,7 @@ if exist "!VSWHERE!" (
 )
 
 if not defined MSBUILD (
-    echo    vswhere не нашёл. Перебираю стандартные пути...
+    echo     vswhere failed, checking default paths...
     for %%E in (2022 2019 2026) do (
         for %%T in (Community Professional Enterprise BuildTools) do (
             if not defined MSBUILD (
@@ -64,20 +47,18 @@ if not defined MSBUILD (
 
 if not defined MSBUILD (
     echo.
-    echo    !!! Visual Studio не найдена.
-    echo    Установи Visual Studio 2022 (Community хватит) с компонентом
-    echo    "Desktop development with C++" и запусти этот файл снова.
+    echo     ERROR: Visual Studio not found.
+    echo     Install Visual Studio 2022 Community with
+    echo     "Desktop development with C++" and run again.
     echo.
     pause
     exit /b 1
 )
-echo    OK: !MSBUILD!
+echo     OK: !MSBUILD!
 echo.
 
-REM ===========================================================================
-REM 2. PYTHON
-REM ===========================================================================
-echo [2/6] Проверяю Python...
+REM ---------------------------------------------------------------- PYTHON
+echo [2/6] Checking Python...
 
 set "PY="
 where python >nul 2>&1 && set "PY=python"
@@ -85,32 +66,29 @@ if not defined PY ( where py >nul 2>&1 && set "PY=py" )
 
 if not defined PY (
     echo.
-    echo    !!! Python не найден.
-    echo    Поставь Python 3.8+ с python.org, при установке отметь
-    echo    "Add python.exe to PATH". Потом запусти файл снова.
+    echo     ERROR: Python not found.
+    echo     Install Python 3.8+ from python.org and tick
+    echo     "Add python.exe to PATH". Then run again.
     echo.
     pause
     exit /b 1
 )
-for /f "tokens=*" %%v in ('%PY% --version 2^>^&1') do echo    OK: %%v
+for /f "tokens=*" %%v in ('%PY% --version 2^>^&1') do echo     OK: %%v
 echo.
 
-REM ===========================================================================
-REM 3. ДВИЖОК
-REM ===========================================================================
-echo [3/6] Движок OGSR...
+REM ---------------------------------------------------------------- ENGINE
+echo [3/6] OGSR Engine...
 
 if exist "!ENGINE!\Engine.sln" (
-    echo    Уже есть: !ENGINE!
+    echo     Already present: !ENGINE!
 ) else (
-    echo    Клонирую OGSR-Engine в !ENGINE!
-    echo    Это ~139 МБ, подожди...
+    echo     Cloning OGSR-Engine, about 139 MB, please wait...
     git clone --depth 1 --filter=blob:none https://github.com/OGSR/OGSR-Engine.git "!ENGINE!"
     if errorlevel 1 (
         echo.
-        echo    !!! Не смог склонировать. Проверь, что установлен git
-        echo    и есть интернет. Либо склонируй сам и передай путь:
-        echo        install.bat C:\путь\к\OGSR-Engine
+        echo     ERROR: clone failed. Check git and internet.
+        echo     Or clone manually and pass the path:
+        echo         install.bat C:\path\to\OGSR-Engine
         echo.
         pause
         exit /b 1
@@ -122,47 +100,37 @@ if exist "!ENGINE!\Engine.sln" (
 )
 echo.
 
-REM ===========================================================================
-REM 4. ПАТЧИ МОДА
-REM ===========================================================================
-echo [4/6] Применяю патчи VR-мода...
+REM ---------------------------------------------------------------- PATCHES
+echo [4/6] Applying VR patches...
 
 %PY% tools\apply_patches.py "!ENGINE!"
 if errorlevel 1 (
     echo.
-    echo    !!! Патчи не применились. Смотри текст выше.
-    echo    Если написано "anchor not found" - версия движка не та.
+    echo     ERROR: patching failed, see text above.
     echo.
     pause
     exit /b 1
 )
 echo.
 
-REM ===========================================================================
-REM 5. СБОРКА
-REM ===========================================================================
-echo [5/6] Собираю Release^|x64...
-echo    Первый раз это 15-40 минут. Не закрывай окно.
+REM ---------------------------------------------------------------- BUILD
+echo [5/6] Building Release x64...
+echo     First build takes 15-40 minutes. Do not close this window.
 echo.
 
 "!MSBUILD!" "!ENGINE!\Engine.sln" /m /p:Configuration=Release /p:Platform=x64 /v:minimal /nologo
 if errorlevel 1 (
     echo.
-    echo    !!! Сборка упала. Смотри ошибки выше.
-    echo    Частые причины:
-    echo      - не установлен Windows SDK  ^(ставь через Visual Studio Installer^)
-    echo      - не хватает компонента "Desktop development with C++"
-    echo      - путь содержит кириллицу ^(перенеси в C:\OGSR^)
+    echo     ERROR: build failed, see errors above.
+    echo     Install Windows SDK via Visual Studio Installer if missing.
     echo.
     pause
     exit /b 1
 )
 echo.
 
-REM ===========================================================================
-REM 6. РЕЗУЛЬТАТ
-REM ===========================================================================
-echo [6/6] Готово.
+REM ---------------------------------------------------------------- RESULT
+echo [6/6] Done.
 echo.
 
 set "BINDIR=!ENGINE!\bin"
@@ -173,31 +141,30 @@ if not exist "!BINDIR!\xrEngine.exe" (
 )
 
 if exist "!BINDIR!\xrEngine.exe" (
-    echo    Собрано: !BINDIR!\xrEngine.exe
+    echo     Built: !BINDIR!\xrEngine.exe
 ) else (
-    echo    exe не найден. Поищи его сам в !ENGINE!
+    echo     xrEngine.exe not found, look for it in !ENGINE!
 )
 
 echo.
 echo ============================================================
-echo   ОСТАЛОСЬ СДЕЛАТЬ РУКАМИ ^(3 минуты^)
+echo   MANUAL STEPS LEFT (3 minutes)
 echo ============================================================
 echo.
-echo   1. Скопируй openvr_api.dll из SteamVR:
-echo      Steam\steamapps\common\SteamVR\bin\win64\openvr_api.dll
-echo      в папку:
-echo      !BINDIR!
+echo   1. Copy openvr_api.dll from SteamVR:
+echo         Steam\steamapps\common\SteamVR\bin\win64\openvr_api.dll
+echo      into:
+echo         !BINDIR!
 echo.
-echo   2. Скопируй туда же gamedata\ из лицензионной ТЧ 1.0006
-echo      ^(configs, scripts, meshes, textures, sounds, levels^).
+echo   2. Copy gamedata\ from licensed SoC 1.0006 into the same folder
+echo      (configs, scripts, meshes, textures, sounds, levels).
 echo.
-echo   3. Скопируй gamedata\configs\vr\vr_config.ltx из этого
-echo      репозитория в:
-echo      !BINDIR!\gamedata\configs\vr\
+echo   3. Copy vr_config.ltx into:
+echo         !BINDIR!\gamedata\configs\vr\
 echo.
-echo   4. Запусти SteamVR, подключи Pico, запусти xrEngine.exe.
+echo   4. Start SteamVR, connect Pico, run xrEngine.exe.
 echo.
-echo   Если VR не включился - в консоли игры ^(~^) набери vr_status
+echo   If VR does not start, type vr_status in the game console.
 echo.
 echo ============================================================
 echo.

@@ -159,7 +159,17 @@ if render_cpp.exists():
           "xrVR_render.cpp обращается к приватному CTexture::pSurface (нужен surface_get())")
     if "surface_get()" in txt:
         check(True, "")
-print("[10] Нет предобъявлений typedef через struct")
+print("[10] install.bat запускается на Windows")
+bat = ROOT / "install.bat"
+if bat.exists():
+    raw = bat.read_bytes()
+    check(raw[:3] != b'\xef\xbb\xbf',
+          "install.bat: UTF-8 BOM ломает первую строку (cmd читает 'n++@echo off')")
+    check(b'\r\n' in raw, "install.bat: нужны CRLF, иначе cmd не разберёт файл")
+    nonascii = sum(1 for b in raw if b > 127)
+    check(nonascii == 0, f"install.bat: {nonascii} не-ASCII байт, cmd споткнётся")
+
+print("[11] Нет предобъявлений typedef через struct")
 h_txt = (SRC / "xrVR.h")
 if h_txt.exists():
     t = h_txt.read_text(encoding="utf-8")
