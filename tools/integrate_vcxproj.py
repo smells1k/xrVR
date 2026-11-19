@@ -59,6 +59,18 @@ def copy_sources():
         shutil.copy2(OPENVR_H, DEST_OVR / "openvr.h")
         copied.append("openvr/openvr.h")
 
+    OPENVR_LIB = (Path(__file__).resolve().parent.parent / "third_party"
+                  / "openvr" / "lib" / "win64" / "openvr_api.lib")
+    if OPENVR_LIB.exists():
+        (DEST_OVR / "lib").mkdir(parents=True, exist_ok=True)
+        shutil.copy2(OPENVR_LIB, DEST_OVR / "lib" / "openvr_api.lib")
+        copied.append("openvr/lib/openvr_api.lib")
+
+    # openvr_api.dll должен лежать РЯДОМ С EXE в рантайме
+    OPENVR_DLL = OPENVR_LIB.parent / "openvr_api.dll"
+    if OPENVR_DLL.exists():
+        shutil.copy2(OPENVR_DLL, ENGINE.parent / "bin_x64" / "openvr_api.dll")             if (ENGINE.parent / "bin_x64").exists() else None
+
     print(f"[vcx] скопировано в {DEST}: {', '.join(sorted(copied))}")
 
 
@@ -159,6 +171,8 @@ def main():
         new_clcompile=["..\\xrVR\\xrVR_api.cpp", "..\\xrVR\\xrVR_console.cpp", "..\\xrVR\\xrVR_openvr_null.cpp"],
         new_clinclude=["..\\xrVR\\xrVR.h", "..\\xrVR\\xrVR_math.h", "..\\xrVR\\xrVR_openvr.h", "..\\xrVR\\xrVR_console.h"],
         include_dirs=["$(SolutionDir)ogsr_engine\\xrVR"],
+        # xrVR_openvr_r4.obj тянет __imp_VR_* -> нужна импорт-библиотека
+        extra_libs=["$(SolutionDir)ogsr_engine\\xrVR\\openvr\\lib\\openvr_api.lib"],
     )
 
     # xrRender_R4: реальная реализация OpenVR + стерео-рендер
@@ -167,6 +181,7 @@ def main():
         new_clcompile=["..\\..\\xrVR\\xrVR_openvr_r4.cpp", "..\\..\\xrVR\\xrVR_render.cpp"],
         new_clinclude=["..\\..\\xrVR\\xrVR.h", "..\\..\\xrVR\\xrVR_math.h", "..\\..\\xrVR\\xrVR_openvr.h", "..\\..\\xrVR\\xrVR_render.h"],
         include_dirs=["$(SolutionDir)ogsr_engine\\xrVR", "$(SolutionDir)ogsr_engine\\xrVR\\openvr"],
+        extra_libs=["$(SolutionDir)ogsr_engine\\xrVR\\openvr\\lib\\openvr_api.lib"],
     )
 
     # xrGame: заголовки + ССЫЛКА на xrRender_R4.
