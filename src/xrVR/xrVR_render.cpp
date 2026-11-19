@@ -28,6 +28,11 @@
 
 #include "../Layers/xrRender/HW.h"
 
+// HUD-камера (руки/оружие): движок считает mProject_hud в device.cpp:174
+// по Device.fFOV ДО входа в стерео-цикл. В VR это даёт разный вид HUD
+// в каждом глазу (разные fFOV) и неверный масштаб. Пересчитываем сами.
+extern ENGINE_API float psHUD_FOV;
+
 #include "../xr_3da/CameraManager.h"
 #include "../xr_3da/IGame_Level.h"
 
@@ -216,6 +221,34 @@ bool RenderApplyEye(int eye_index)
 
     RImplementation.SetCacheXform(Device.mView, Device.mProject);
     RImplementation.ViewBase.CreateFromMatrix(Device.mFullTransform, FRUSTUM_P_LRTB + FRUSTUM_P_FAR);
+
+    // --- HUD (руки/оружие) под этот глаз ------------------------------
+    // mView_hud ставит камеру в ноль (device.cpp:173), т.е. HUD всегда
+    // "приклеен" к голове. Копируем поворот глаза, иначе при наклоне
+    // головы руки задваиваются в стерео.
+    // Проекцию считаем по ТОМУ ЖЕ fFOV, что и мир - тогда HUD не
+    // "прыгает" между глазами и совпадает по масштабу.
+    {
+        Device.mView_hud.build_camera_dir(Fvector{}, Device.vCameraDirection, Device.vCameraTop);
+        Device.mProject_hud.build_projection(
+            deg2rad(psHUD_FOV <= 1.f ? psHUD_FOV * Device.fFOV : psHUD_FOV),
+            Device.fASPECT, HUD_VIEWPORT_NEAR, cfg.farPlane);
+        Device.mFullTransform_hud.mul(Device.mProject_hud, Device.mView_hud);
+
+        Device.mView_hud2.set(Device.mView);
+        Device.mProject_hud2.build_projection(
+            deg2rad(psHUD_FOV <= 1.f ? psHUD_FOV * Device.fFOV : psHUD_FOV),
+            Device.fASPECT, HUD_VIEWPORT_NEAR, cfg.farPlane);
+        Device.mFullTransform_hud2.mul(Device.mProject_hud2, Device.mView_hud2);
+
+        // _old-варианты: без них HUD-проход берёт матрицы прошлого кадра
+        Device.mView_hud_old = Device.mView_hud;
+        Device.mProject_hud_old = Device.mProject_hud;
+        Device.mFullTransform_hud_old = Device.mFullTransform_hud;
+        Device.mView_hud_old2 = Device.mView_hud2;
+        Device.mProject_hud_old2 = Device.mProject_hud2;
+        Device.mFullTransform_hud_old2 = Device.mFullTransform_hud2;
+    }
 
     g_st.currentEye = eye_index;
     GetState().eye = eye_index;

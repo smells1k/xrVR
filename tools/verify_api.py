@@ -142,7 +142,15 @@ if api_cpp.exists():
     check("TRUE, TRUE, FALSE" in t,
           "CInifile создаётся с bLoad=FALSE - файл не будет прочитан")
 
-print("[8] Нет обращений к приватным полям движка")
+print("[8] HUD (руки/оружие) пересчитывается под глаз")
+rcpp = (SRC / "xrVR_render.cpp")
+if rcpp.exists():
+    t = rcpp.read_text(encoding="utf-8")
+    check("mProject_hud" in t, "RenderApplyEye не пересчитывает HUD-проекцию")
+    check("psHUD_FOV" in t, "не используется psHUD_FOV - HUD разъедется по глазам")
+    check("mView_hud_old" in t, "не обновлены *_hud_old - HUD возьмёт матрицы прошлого кадра")
+
+print("[9] Нет обращений к приватным полям движка")
 # CTexture::pSurface - private (SH_Texture.h:120). Публичный аксессор - surface_get().
 render_cpp = (SRC / "xrVR_render.cpp")
 if render_cpp.exists():
@@ -151,7 +159,7 @@ if render_cpp.exists():
           "xrVR_render.cpp обращается к приватному CTexture::pSurface (нужен surface_get())")
     if "surface_get()" in txt:
         check(True, "")
-print("[9] Нет предобъявлений typedef через struct")
+print("[10] Нет предобъявлений typedef через struct")
 h_txt = (SRC / "xrVR.h")
 if h_txt.exists():
     t = h_txt.read_text(encoding="utf-8")
