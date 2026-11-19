@@ -86,7 +86,7 @@ bool Init()
 
     if (!OpenVR_Init())
     {
-        LogLine("! [xrVR] Не удалось запустить OpenVR (SteamVR не установлен/не запущен).");
+        LogLine("! [xrVR] OpenVR init failed (SteamVR not installed or not running).");
         return false;
     }
 
@@ -100,7 +100,7 @@ bool Init()
     float hz = 0.f;
     OpenVR_GetHMDRefreshRate(hz);
 
-    LogLine("* [xrVR] VR запущен. Шлем: %s, частота: %.0f Hz", g_state.hmdName, hz);
+    LogLine("* [xrVR] VR started. HMD: %s, refresh: %.0f Hz", g_state.hmdName, hz);
     return true;
 }
 
@@ -115,7 +115,7 @@ void Shutdown()
     g_haveHead = false;
     g_prevHeadValid = false;
 
-    LogLine("* [xrVR] VR выключен.");
+    LogLine("* [xrVR] VR disabled.");
 }
 
 //=============================================================================
@@ -141,12 +141,12 @@ void LoadConfig()
 
     if (!vrIni || !vrIni->section_exist("vr"))
     {
-        LogLine("* [xrVR] нет gamedata/configs/vr/vr_config.ltx - настройки по умолчанию.");
+        LogLine("* [xrVR] gamedata/configs/vr/vr_config.ltx not found - using defaults.");
         if (vrIni) { vrIni->~CInifile(); vrIni = nullptr; }
         return;
     }
 
-    LogLine("* [xrVR] прочитан %s", g_cfgPath);
+    LogLine("* [xrVR] loaded %s", g_cfgPath);
 
     auto get_bool = [vrIni](LPCSTR n, bool def) {
         return vrIni->line_exist("vr", n) ? (CInifile::IsBOOL(vrIni->r_string("vr", n)) != FALSE) : def;

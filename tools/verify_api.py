@@ -184,7 +184,25 @@ if bat.exists():
     nonascii = sum(1 for b in raw if b > 127)
     check(nonascii == 0, f"install.bat: {nonascii} не-ASCII байт, cmd споткнётся")
 
-print("[11] Нет предобъявлений typedef через struct")
+print("[11] В коде нет кириллицы (MSVC C4566 при cp1252)")
+import re as _re
+_bad = []
+for _f in sorted(SRC.glob("*")):
+    if _f.suffix not in (".cpp", ".h"):
+        continue
+    for _i, _l in enumerate(_f.read_text(encoding="utf-8").splitlines(), 1):
+        if _re.search(r"[\u0400-\u04FF]", _re.sub(r"//.*$", "", _l)):
+            _bad.append(f"{_f.name}:{_i}")
+check(not _bad, "кириллица в коде: " + ", ".join(_bad[:5]))
+
+print("[12] Баланс препроцессора (#if / #endif)")
+for _f in sorted(SRC.glob("*.cpp")):
+    _t = _f.read_text(encoding="utf-8")
+    _o = len(_re.findall(r"^\s*#\s*if(n?def)?\b", _t, _re.M))
+    _c = len(_re.findall(r"^\s*#\s*endif\b", _t, _re.M))
+    check(_o == _c, f"{_f.name}: #if={_o} #endif={_c} (MSVC C1020)")
+
+print("[13] Нет предобъявлений typedef через struct")
 h_txt = (SRC / "xrVR.h")
 if h_txt.exists():
     t = h_txt.read_text(encoding="utf-8")

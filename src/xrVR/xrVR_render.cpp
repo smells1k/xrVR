@@ -370,7 +370,7 @@ static void RenderEnsureScreenTexture()
     else
     {
         g_screenTexture = nullptr;
-        Msg("! [xrVR] Не удалось создать текстуру VR-экрана");
+        Msg("! [xrVR] failed to create VR screen texture");
     }
 }
 
