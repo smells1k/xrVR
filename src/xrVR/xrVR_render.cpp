@@ -261,7 +261,7 @@ bool RenderApplyEye(int eye_index)
 // (там же вызывается Calculate под нужный глаз).
 void RenderFinishEye()
 {
-    if (!g_st.active || !IsInitialized())
+    if (!g_st.active || !IsInitialized() || !RImplementation.Target)
         return;
 
     CTexture* tex = RImplementation.Target->rt_base[0]->pTexture._get();
@@ -379,9 +379,13 @@ void RenderUpdateScreen()
 {
     if (!IsInitialized() || !RenderIsActive())
     {
-        OpenVR_ShowScreen(false, 0.f);
         return;
     }
+
+    // Target создаётся позже device-create (Resources); до этого
+    // RImplementation.Target == nullptr и разыменование валит игру.
+    if (!RImplementation.Target)
+        return;
 
     RenderEnsureScreenTexture();
     if (!g_screenTexture)

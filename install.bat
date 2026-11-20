@@ -196,7 +196,7 @@ echo   2. Copy gamedata\ from licensed SoC 1.0006 into the same folder
 echo      (configs, scripts, meshes, textures, sounds, levels).
 echo.
 echo   3. Copy vr_config.ltx into:
-echo         !BINDIR!\gamedata\configs\vr\
+echo         !BINDIR!\gamedata\config\vr\  (note: config, not configs)
 echo.
 echo   4. Start SteamVR, connect Pico, run xrEngine.exe.
 echo.

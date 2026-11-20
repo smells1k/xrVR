@@ -142,11 +142,14 @@ if api_cpp.exists():
     # pSettings - это только configs/system.ltx (x_ray.cpp:44)
     check('FS.update_path' in t and "vr_config.ltx" in t,
           "LoadConfig не читает vr_config.ltx через FS.update_path")
-    check('section_exist("vr")' in t and "vrIni" in t,
-          "LoadConfig не использует собственный CInifile для [vr]")
-    # bLoad должен быть TRUE, иначе файл не парсится
-    check("TRUE, TRUE, FALSE" in t,
-          "CInifile создаётся с bLoad=FALSE - файл не будет прочитан")
+    # CInifile в _Create() валит игру (FS.r_open -> file_from_cache с
+    # нулевым desc). Читаем конфиг обычным stdio.
+    _code = "\n".join(l for l in t.splitlines() if not l.strip().startswith("//"))
+    check("CInifile" not in _code,
+          "LoadConfig снова использует CInifile (крэш на старте, см. commit)")
+    check("fopen" in _code, "LoadConfig не читает файл через fopen")
+    check("ini.Find(\"vr\"" in t or "Find(\"vr\"" in t,
+          "LoadConfig не фильтрует ключи по секции [vr]")
 
 print("[8] HUD (руки/оружие) пересчитывается под глаз")
 rcpp = (SRC / "xrVR_render.cpp")

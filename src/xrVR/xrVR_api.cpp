@@ -122,72 +122,165 @@ void Shutdown()
 //=============================================================================
 // Конфиг
 //=============================================================================
+//--------------------------------------------------------------------------
+// Чтение vr_config.ltx БЕЗ движка.
+//
+// Почему не CInifile: конструктор дергает FS.r_open -> file_from_cache,
+// которая в OGSR при промахе кэша разыменовывает нулевой desc, а
+// xr_delete обёрнут в наши inline-аллокаторы. В _Create() (до создания
+// Resources) это валит игру прямо на старте. Нам нужен ровно один
+// маленький INI - парсим его обычным stdio, без единого вызова движка.
+//--------------------------------------------------------------------------
+namespace
+{
+struct IniReader
+{
+    FILE* f = nullptr;
+    char  path[520]{};
+    bool  open = false;
+
+    bool Begin()
+    {
+        if (!FS.exist("$game_config$", "vr\\vr_config.ltx"))
+            return false;
+
+        FS.update_path(path, "$game_config$", "vr\\vr_config.ltx");
+        f = fopen(path, "rb");
+        open = (f != nullptr);
+        return open;
+    }
+
+    void End()
+    {
+        if (f) { fclose(f); f = nullptr; }
+        open = false;
+    }
+
+    // ищет строку "key = value" в секции [want]
+    bool Find(LPCSTR want_sect, LPCSTR key, char* out, size_t out_sz) const
+    {
+        if (!f)
+            return false;
+
+        rewind(f);
+
+        char line[1024];
+        char sect[64] = "";
+        const size_t klen = strlen(key);
+
+        while (fgets(line, sizeof(line), f))
+        {
+            // тримим
+            char* p = line;
+            while (*p == ' ' || *p == '\t') ++p;
+            size_t n = strlen(p);
+            while (n && (p[n-1] == '\n' || p[n-1] == '\r' || p[n-1] == ' ' || p[n-1] == '\t')) p[--n] = 0;
+            if (!n || p[0] == ';' || (p[0] == '/' && p[1] == '/'))
+                continue;
+
+            if (p[0] == '[')
+            {
+                char* close = strchr(p, ']');
+                if (close)
+                {
+                    *close = 0;
+                    strncpy_s(sect, sizeof(sect), p + 1, _TRUNCATE);
+                }
+                continue;
+            }
+
+            if (xr_strcmp(sect, want_sect) != 0)
+                continue;
+
+            if (strncmp(p, key, klen) != 0)
+                continue;
+
+            char* eq = p + klen;
+            while (*eq == ' ' || *eq == '\t') ++eq;
+            if (*eq != '=')
+                continue;
+            ++eq;
+            while (*eq == ' ' || *eq == '\t') ++eq;
+
+            strncpy_s(out, out_sz, eq, _TRUNCATE);
+            return true;
+        }
+        return false;
+    }
+};
+} // namespace
+
 void LoadConfig()
 {
     Config& c = g_config;
 
-    // ВАЖНО: pSettings (x_ray.cpp:44) - это только configs/system.ltx.
-    // Наш vr_config.ltx там не лежит, поэтому читаем файл сами через FS.
-    // Раньше здесь стояла проверка pSettings->section_exist("vr") - она
-    // всегда давала false, и все настройки молча оставались дефолтными.
-    // Аргументы CInifile(name, ReadOnly, bLoad, SaveAtEnd) - как в
-    // Environment.cpp: bLoad=TRUE обязателен, иначе файл не читается.
-    CInifile* vrIni = nullptr;
-    if (FS.exist("$game_config$", "vr\\vr_config.ltx"))
+    IniReader ini;
+    if (!ini.Begin())
     {
-        vrIni = xr_new<CInifile>(
-            FS.update_path(g_cfgPath, "$game_config$", "vr\\vr_config.ltx"),
-            TRUE, TRUE, FALSE);
-    }
-
-    if (!vrIni || !vrIni->section_exist("vr"))
-    {
-        LogLine("* [xrVR] gamedata/configs/vr/vr_config.ltx not found - using defaults.");
-        if (vrIni) { vrIni->~CInifile(); vrIni = nullptr; }
+        LogLine("* [xrVR] gamedata/config/vr/vr_config.ltx not found - using defaults.");
         return;
     }
 
-    LogLine("* [xrVR] loaded %s", g_cfgPath);
+    LogLine("* [xrVR] loaded %s", ini.path);
 
-    auto get_bool = [vrIni](LPCSTR n, bool def) {
-        return vrIni->line_exist("vr", n) ? (CInifile::IsBOOL(vrIni->r_string("vr", n)) != FALSE) : def;
+    auto get_str = [&ini](LPCSTR n, LPCSTR def) {
+        static char buf[256];
+        if (!ini.Find("vr", n, buf, sizeof(buf)))
+            return def;
+        return (LPCSTR)buf;
     };
-    auto get_float = [vrIni](LPCSTR n, float def) { return vrIni->line_exist("vr", n) ? vrIni->r_float("vr", n) : def; };
-    auto get_int = [vrIni](LPCSTR n, int def) { return vrIni->line_exist("vr", n) ? (int)vrIni->r_u32("vr", n) : def; };
+    auto get_bool = [&ini](LPCSTR n, bool def) {
+        char buf[64];
+        if (!ini.Find("vr", n, buf, sizeof(buf)))
+            return def;
+        return !(buf[0] == '0' || buf[0] == 'f' || buf[0] == 'F' || buf[0] == 'n' || buf[0] == 'N');
+    };
+    auto get_float = [&ini](LPCSTR n, float def) {
+        char buf[64];
+        if (!ini.Find("vr", n, buf, sizeof(buf)))
+            return def;
+        return (float)atof(buf);
+    };
+    auto get_int = [&ini](LPCSTR n, int def) {
+        char buf[64];
+        if (!ini.Find("vr", n, buf, sizeof(buf)))
+            return def;
+        return atoi(buf);
+    };
 
-    c.enabled = get_bool("vr_enabled", c.enabled);
-    c.autoEnableInGame = get_bool("vr_auto_in_game", c.autoEnableInGame);
-    c.worldScale = get_float("vr_world_scale", c.worldScale);
-    c.eyeHeight = get_float("vr_eye_height", c.eyeHeight);
-    c.ipdScale = get_float("vr_ipd_scale", c.ipdScale);
-    c.fovDeg = get_float("vr_fov", c.fovDeg);
-    c.nearPlane = get_float("vr_near", c.nearPlane);
-    c.farPlane = get_float("vr_far", c.farPlane);
-    c.hudDistance = get_float("vr_hud_distance", c.hudDistance);
-    c.hudSize = get_float("vr_hud_size", c.hudSize);
-    c.mirrorMode = get_int("vr_mirror", c.mirrorMode);
-    c.msaa = get_int("vr_msaa", c.msaa);
-    c.maxFPS = get_float("vr_max_fps", c.maxFPS);
-    c.weaponAim = get_bool("vr_weapon_aim", c.weaponAim);
-    c.hmdfreeLook = get_bool("vr_head_look", c.hmdfreeLook);
-    c.hudInVR = get_bool("vr_hud", c.hudInVR);
-    c.posePredictMs = get_float("vr_predict_ms", c.posePredictMs);
+    c.enabled          = get_bool ("vr_enabled",       c.enabled);
+    c.autoEnableInGame = get_bool ("vr_auto_in_game",  c.autoEnableInGame);
+    c.worldScale       = get_float("vr_world_scale",   c.worldScale);
+    c.eyeHeight        = get_float("vr_eye_height",    c.eyeHeight);
+    c.ipdScale         = get_float("vr_ipd_scale",     c.ipdScale);
+    c.fovDeg           = get_float("vr_fov",           c.fovDeg);
+    c.nearPlane        = get_float("vr_near",          c.nearPlane);
+    c.farPlane         = get_float("vr_far",           c.farPlane);
+    c.hudDistance      = get_float("vr_hud_distance",  c.hudDistance);
+    c.hudSize          = get_float("vr_hud_size",      c.hudSize);
+    c.mirrorMode       = get_int  ("vr_mirror",        c.mirrorMode);
+    c.msaa             = get_int  ("vr_msaa",          c.msaa);
+    c.maxFPS           = get_float("vr_max_fps",       c.maxFPS);
+    c.weaponAim        = get_bool ("vr_weapon_aim",    c.weaponAim);
+    c.hmdfreeLook      = get_bool ("vr_head_look",     c.hmdfreeLook);
+    c.hudInVR          = get_bool ("vr_hud",           c.hudInVR);
+    c.posePredictMs    = get_float("vr_predict_ms",    c.posePredictMs);
 
     auto clampf = [](float v, float lo, float hi) { return v < lo ? lo : (v > hi ? hi : v); };
-    c.worldScale = clampf(c.worldScale, 0.3f, 3.f);
-    c.eyeHeight = clampf(c.eyeHeight, 1.f, 2.2f);
-    c.ipdScale = clampf(c.ipdScale, 0.5f, 2.f);
-    c.fovDeg = clampf(c.fovDeg, 60.f, 130.f);
-    c.nearPlane = clampf(c.nearPlane, 0.01f, 0.5f);
-    c.farPlane = clampf(c.farPlane, 100.f, 5000.f);
+    c.worldScale  = clampf(c.worldScale,  0.3f, 3.f);
+    c.eyeHeight   = clampf(c.eyeHeight,   1.f,  2.2f);
+    c.ipdScale    = clampf(c.ipdScale,    0.5f, 2.f);
+    c.fovDeg      = clampf(c.fovDeg,      60.f, 130.f);
+    c.nearPlane   = clampf(c.nearPlane,   0.01f, 0.5f);
+    c.farPlane    = clampf(c.farPlane,    100.f, 5000.f);
     c.hudDistance = clampf(c.hudDistance, 0.25f, 3.f);
-    c.hudSize = clampf(c.hudSize, 0.3f, 2.f);
-    c.mirrorMode = c.mirrorMode < 0 ? 0 : (c.mirrorMode > 2 ? 2 : c.mirrorMode);
+    c.hudSize     = clampf(c.hudSize,     0.3f, 2.f);
+    c.mirrorMode  = c.mirrorMode < 0 ? 0 : (c.mirrorMode > 2 ? 2 : c.mirrorMode);
 
     LogLine("* [xrVR] config: enabled=%d scale=%.2f eye=%.2f fov=%.0f hudDist=%.2f hudSize=%.2f",
             c.enabled ? 1 : 0, c.worldScale, c.eyeHeight, c.fovDeg, c.hudDistance, c.hudSize);
 
-    xr_delete(vrIni);
+    ini.End();
 }
 
 void OnDeviceCreate()
